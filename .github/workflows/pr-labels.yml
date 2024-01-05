@@ -1,0 +1,23 @@
+name: PR Labels
+
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize]
+
+jobs:
+  pr_labels:
+    name: 🏭 Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🏷 Verify PR has a valid label
+        uses: jesusvasquez333/verify-pr-label-action@v1.4.0
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          valid-labels: >-
+            feat, fix, hotfix, ui, api, lang, security, conf, other, docs, 
+            platform-deb12, platform-ubuntu22, build, ci, egg, refactor, perf, 
+            style, revert, chore, test, breaking, assets, maintenance, 
+            in-progress, stale, no-stale, incomplete, invalid, beginner-friendly, 
+            help-wanted, priority-critical, priority-high, priority-medium, 
+            priority-low, php, javascript, python, shell
+          disable-reviews: true

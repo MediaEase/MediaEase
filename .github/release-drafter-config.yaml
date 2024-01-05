@@ -1,0 +1,108 @@
+name-template: 'v$RESOLVED_VERSION  🌈'
+tag-template: 'v$RESOLVED_VERSION'
+version-template: 'v$COMPLETE'
+categories:
+  - title: '🎉 New Features'
+    labels:
+      - 'feat'
+  - title: '🩹 Bug Fixes'
+    labels:
+      - 'fix'
+  - title: '🚑 Hotfixes'
+    labels:
+      - 'hotfix'
+  - title: '🎨 UI/UX'
+    labels:
+      - 'ui'
+  - title: '📡 API'
+    labels:
+      - 'api'
+  - title: '🌐 Internationalization'
+    labels:
+      - 'lang'
+  - title: '🔒 Security'
+    labels:
+      - 'security'
+  - title: '🔧 Configuration'
+    labels:
+      - 'conf'
+  - title: '🤷 Other Changes'
+    labels:
+      - 'other'
+  - title: '📝 Documentation'
+    labels:
+      - 'docs'
+  - title: '🐧️ Linux'
+    labels:
+      - 'platform'
+  - title: '🏗️ Build System & Dependencies'
+    labels:
+      - 'build'
+  - title: '👷 Continuous Integration'
+    labels:
+      - 'ci'
+  - title: '🥚 Easter Eggs'
+    labels:
+      - 'egg'
+  - title: '♻️ Refactors'
+    labels:
+      - 'refactor'
+  - title: '⚡️ Performance Improvements'
+    labels:
+      - 'perf'
+  - title: '💄 Code Style'
+    labels:
+      - 'style'
+  - title: '⏪️ Reverts'
+    labels:
+      - 'revert'
+  - title: '🚀 Chores'
+    labels:
+      - 'chore'
+  - title: '✅ Tests'
+    labels:
+      - 'test'
+  - title: '💥 Breaking Changes'
+    labels:
+      - 'breaking'
+  - title: '🍱 Assets'
+    labels:
+      - 'assets'
+
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+version-resolver:
+  major:
+    labels:
+      - 'breaking'
+  minor:
+    labels:
+      - 'feat'
+  patch:
+    labels:
+      - 'fix'
+      - 'hotfix'
+      - 'ui'
+      - 'api'
+      - 'intl'
+      - 'security'
+      - 'conf'
+      - 'other'
+      - 'docs'
+      - 'platform'
+      - 'build'
+      - 'ci'
+      - 'egg'
+      - 'refactor'
+      - 'perf'
+      - 'style'
+      - 'revert'
+      - 'chore'
+      - 'test'
+      - 'assets'
+      
+  default: patch
+sort-by: title
+template: |
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...$RESOLVED_VERSION
+  ---
+  Thanks to our contributors: $CONTRIBUTORS

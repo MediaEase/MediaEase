@@ -1,0 +1,8 @@
+[submodule "scripts"]
+	path = scripts
+	url = https://github.com/MediaEase/scripts
+	branch = develop
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/MediaEase/HarmonyUI
+	branch = develop
