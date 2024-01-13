@@ -7,55 +7,19 @@ on:
 jobs:
   update-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: true
 
-      - name: Build Scripts Release Note
-        id: build_scripts_release_note
+      - name: Set up Git
+        id: git-config
         run: |
-          if [ -z "$SCRIPTS_VERSION" ]; then
-            echo "SCRIPTS_VERSION=$(git -C frontend describe --tags `git -C frontend rev-list --tags --max-count=1`)" >> $GITHUB_ENV
-          fi
-          echo "This release contains the following changes:" > scripts_release_note.md
-          echo "- MediaEase/scripts version: [${{ env.SCRIPTS_VERSION }}] >> scripts_release_note.md"
-          echo "---" >> scripts_release_note.md"
-          echo "## What's new?" >> scripts_release_note.md"
-          echo "### MediaEase/scripts:" >> scripts_release_note.md"
-          cat scripts_release_notes.txt >> scripts_release_note.md"
-
-      - name: Build HarmonyUI Release Note
-        id: build_harmonyui_release_note
-        run: |
-          if [ -z "$HARMONYUI_VERSION" ]; then
-            echo "HARMONYUI_VERSION=$(git -C frontend describe --tags `git -C frontend rev-list --tags --max-count=1`)" >> $GITHUB_ENV
-          fi
-          echo "This release contains the following changes:" > harmonyui_release_note.md
-          echo "- MediaEase/HarmonyUI version: [${{ env.HARMONYUI_VERSION }}] >> harmonyui_release_note.md"
-          echo "---" >> harmonyui_release_note.md"
-          echo "## What's new?" >> harmonyui_release_note.md"
-          echo "### MediaEase/HarmonyUI:" >> harmonyui_release_note.md"
-          cat harmonyui_release_notes.txt >> harmonyui_release_note.md"
-
-      - name: Build Global Release Notes
-        id: build_release_notes
-        run: |
-          echo "This release contains the following changes:" > release_notes.md
-          echo "- MediaEase/scripts version: [${{ env.SCRIPTS_VERSION }}]" >> release_notes.md
-          echo "- MediaEase/HarmonyUI version: [${{ env.HARMONYUI_VERSION }}]" >> release_notes.md
-          echo "---" >> release_notes.md"
-          echo "### MediaEase/scripts:" >> release_notes.md
-          cat scripts_release_note.md | sed '1d' >> release_notes.md
-          echo "# MediaEase/HarmonyUI:" >> release_notes.md
-          cat harmonyui_release_note.md | sed '1d' >> release_notes.md
-          echo "### MediaEase/MediaEase:" >> release_notes.md
-          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          echo "$COMMIT_MESSAGE" >> release_notes.md
-          echo "release_notes<<EOF" >> $GITHUB_ENV
-          cat release_notes.md >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          git config --global user.name 'tomcdj71'
+          git config --global user.email 'actions@github.com'
 
       - name: Update Submodule
         run: |
@@ -64,29 +28,123 @@ jobs:
           BRANCH_NAME="${REF#refs/heads/}"
           if [ "$MODULE_NAME" == "HarmonyUI" ]; then
             SUBMODULE_PATH="frontend"
-            RELEASE_NOTE_PATH="harmonyui_release_note.md"
           elif [ "$MODULE_NAME" == "scripts" ]; then
             SUBMODULE_PATH="scripts"
-            RELEASE_NOTE_PATH="scripts_release_note.md"
           fi
           
           if [ -n "$SUBMODULE_PATH" ]; then
-            git submodule update --init --recursive --remote --merge $SUBMODULE_PATH
+            git submodule update --init --recursive --remote $SUBMODULE_PATH
             git config -f .gitmodules submodule.$SUBMODULE_PATH.branch $BRANCH_NAME
-            git submodule update --remote $SUBMODULE_PATH
+            git submodule update --remote --merge --force $SUBMODULE_PATH
             MODULE_VERSION=$(git -C $SUBMODULE_PATH describe --tags `git -C $SUBMODULE_PATH rev-list --tags --max-count=1`)
             git add $SUBMODULE_PATH .gitmodules
-            git commit -m "Update $MODULE_NAME to $MODULE_VERSION ($BRANCH_NAME)" -m "$(cat $RELEASE_NOTE_PATH)"
-            git push origin $BRANCH_NAME
+          
+            if git diff --cached --quiet; then
+              echo "No changes to commit for $MODULE_NAME."
+            else
+              git commit -m "Update $MODULE_NAME to $MODULE_VERSION ($BRANCH_NAME)" -m "$(cat $RELEASE_NOTE_PATH)"
+              git fetch origin $BRANCH_NAME
+              git merge origin/$BRANCH_NAME
+              git push origin $BRANCH_NAME
+            fi
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+
+      - name: Get Scripts Latest Release
+        id: get_latest_scripts
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          repository: MediaEase/scripts
+
+      - name: Get HarmonyUI Latest Release
+        id: get_latest_harmonyui
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          repository: MediaEase/HarmonyUI
+
+      - name: Build Global Release Notes
+        id: build_release_notes
+        run: |
+          if [ "${{ github.event.client_payload.submodule }}" == "HarmonyUI" ]; then
+            SCRIPTS_CHANGES="- No changes"
+            HARMONYUI_CHANGES="$(echo '${{ steps.get_latest_harmonyui.outputs.description }}' | sed '1,4d')"
+          elif [ "${{ github.event.client_payload.submodule }}" == "scripts" ]; then
+            SCRIPTS_CHANGES="$(echo '${{ steps.get_latest_scripts.outputs.description }}' | sed '1,4d')"
+            HARMONYUI_CHANGES="- No changes"
           fi
 
+          cat <<EOF > release_notes.md
+          This release contains the following changes:
+          - MediaEase/scripts version: [${{ steps.get_latest_scripts.outputs.release }}](https://github.com/MediaEase/scripts/releases/tag/${{ steps.get_latest_scripts.outputs.release }})
+          - MediaEase/HarmonyUI version: [${{ steps.get_latest_harmonyui.outputs.release }}](https://github.com/MediaEase/HarmonyUI/releases/tag/${{ steps.get_latest_harmonyui.outputs.release }})
+          ---
+
+          # What's new in this release:
+
+          ## MediaEase/scripts: 
+          $SCRIPTS_CHANGES
+
+          ## MediaEase/HarmonyUI: 
+          $HARMONYUI_CHANGES
+
+          ---
+
+          ## How to update ?
+          See this [wiki page](https://mediaease.github.io/docs/how-to-update) for more information.
+
+          EOF
+
+          echo "RELEASE_HEADER<<EOF" >> $GITHUB_ENV
+          cat release_notes.md >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Set Pre-release Identifier
+        run: echo "PRERELEASE_IDENTIFIER=$(cat ./prerelease_identifier.txt)" >> $GITHUB_ENV
+
       - name: Create Release
+        id: create_release
+        if: ${{ github.ref == 'refs/heads/main' }}
         uses: release-drafter/release-drafter@v5
         with:
           config-name: release-drafter-config.yaml
-          prerelease: ${{ github.ref == 'refs/heads/develop' }}
-          prerelease-identifier: $(cat ./prerelease_identifier.txt)
           publish: true
-          header: ${{ env.release_notes }}
+          header: ${{ env.RELEASE_HEADER }}
         env:
           GITHUB_TOKEN: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+
+      - name: Create Release
+        uses: release-drafter/release-drafter@v5
+        if: ${{ github.ref == 'refs/heads/develop' }}
+        with:
+          config-name: release-drafter-config.yaml
+          prerelease: true
+          prerelease-identifier: ${{ env.PRERELEASE_IDENTIFIER }}
+          publish: true
+          header: ${{ env.RELEASE_HEADER }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+
+      - name: Repository Dispatch for MediaEase
+        if: ${{ github.event.client_payload.ref == 'refs/heads/main' }} || ${{ github.ref == 'refs/heads/main' }}
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          repository: MediaEase/docs
+          event-type: mediaease-release
+          client-payload: '{ "ref": "${{ github.ref_name }}", "sha": "${{ github.sha }}", "mediaease_version":  "${{ steps.create_release.outputs.tag_name }}"}'
+
+      - name: Set Embed Title
+        run: |
+          if [ "${{ github.event.client_payload.ref }}" == "refs/heads/develop" ]; then
+            echo "EMBED_TITLE=New beta version available: MediaEase ${{ steps.create_release.outputs.tag_name }}" >> $GITHUB_ENV
+          else
+            echo "EMBED_TITLE=New version available: MediaEase ${{ steps.create_release.outputs.tag_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Discord Webhook Action
+        uses: tsickert/discord-webhook@v5.3.0
+        with:
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          embed-title: "${{ env.EMBED_TITLE }}"
+          embed-description: "MediaEase ${{ steps.create_release.outputs.tag_name }} is now available. Discover the new features and improvements [here](https://github.com/MediaEase/MediaEase/releases/tag/${{ steps.create_release.outputs.tag_name }})."
