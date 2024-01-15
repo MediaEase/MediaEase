@@ -14,6 +14,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: false
+          fetch-depth: 0
+          ref: ${{ github.event.client_payload.ref }}
 
       - name: Set up Git
         id: git-config
@@ -25,7 +27,7 @@ jobs:
         run: |
           MODULE_NAME="${{ github.event.client_payload.submodule }}"
           REF="${{ github.event.client_payload.ref }}"
-          BRANCH_NAME="${REF#refs/heads/}"
+          BRANCH_NAME="${{ github.event.client_payload.ref }}"
           if [ "$MODULE_NAME" == "HarmonyUI" ]; then
             SUBMODULE_PATH="frontend"
           elif [ "$MODULE_NAME" == "scripts" ]; then
@@ -43,9 +45,9 @@ jobs:
               echo "No changes to commit for $MODULE_NAME."
             else
               git commit -m "Update $MODULE_NAME to $MODULE_VERSION ($BRANCH_NAME)" -m "$(cat $RELEASE_NOTE_PATH)"
-              git fetch origin $BRANCH_NAME
-              git merge origin/$BRANCH_NAME
-              git push origin $BRANCH_NAME
+              git fetch $BRANCH_NAME
+              git merge $BRANCH_NAME
+              git push $BRANCH_NAME
             fi
           fi
         env:
