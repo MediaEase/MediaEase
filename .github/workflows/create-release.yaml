@@ -25,6 +25,7 @@ jobs:
 
       - name: Update Submodule
         run: |
+          git checkout ${{ github.event.client_payload.ref }}
           MODULE_NAME="${{ github.event.client_payload.submodule }}"
           REF="${{ github.event.client_payload.ref }}"
           BRANCH_NAME="${{ github.event.client_payload.ref }}"
