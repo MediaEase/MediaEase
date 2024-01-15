@@ -113,7 +113,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
 
-      - name: Create Release
+      - name: Create Beta Release
         uses: release-drafter/release-drafter@v5
         if: ${{ github.ref == 'refs/heads/develop' }}
         with:
@@ -145,6 +145,6 @@ jobs:
       - name: Discord Webhook Action
         uses: tsickert/discord-webhook@v5.3.0
         with:
-          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          webhook-url: ${{ github.ref == 'refs/heads/develop' && secrets.HOOK_RELEASE_BETA || secrets.HOOK_RELEASE_MAIN }}
           embed-title: "${{ env.EMBED_TITLE }}"
           embed-description: "MediaEase ${{ steps.create_release.outputs.tag_name }} is now available. Discover the new features and improvements [here](https://github.com/MediaEase/MediaEase/releases/tag/${{ steps.create_release.outputs.tag_name }})."
