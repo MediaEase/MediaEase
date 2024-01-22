@@ -22,9 +22,17 @@ jobs:
         run: |
           git config --global user.name 'tomcdj71'
           git config --global user.email 'actions@github.com'
+      
+      - name: Checkout workflows
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          repository: MediaEase/workflows
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
 
       - name: Update Submodule
         run: |
+          python workflows/manage_branch_protection.py ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} MediaEase MediaEase ${{ github.event.client_payload.ref }} false
           git checkout ${{ github.event.client_payload.ref }}
           MODULE_NAME="${{ github.event.client_payload.submodule }}"
           REF="${{ github.event.client_payload.ref }}"
@@ -51,8 +59,7 @@ jobs:
               git push origin $BRANCH_NAME
             fi
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          python workflows/manage_branch_protection.py ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} MediaEase MediaEase ${{ github.event.client_payload.ref }} true
 
       - name: Get Scripts Latest Release
         id: get_latest_scripts
