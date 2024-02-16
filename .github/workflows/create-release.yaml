@@ -23,12 +23,13 @@ jobs:
           git config --global user.name 'tomcdj71'
           git config --global user.email 'actions@github.com'
       
-      - name: Checkout workflows
+      - name: Checkout MediaEase/workflows repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           repository: MediaEase/workflows
           token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          ref: main
+          path: MediaEase-workflows
 
       - name: Update Submodule
         run: |
