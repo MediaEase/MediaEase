@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: MediaEase/workflows
-          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          token: ${{ secrets.PAT }}
           ref: main
           path: MediaEase-workflows
 
