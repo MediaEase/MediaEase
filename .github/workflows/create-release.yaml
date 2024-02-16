@@ -33,7 +33,7 @@ jobs:
 
       - name: Update Submodule
         run: |
-          python workflows/manage_branch_protection.py ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} MediaEase MediaEase ${{ github.event.client_payload.ref }} false
+          python MediaEase-workflows/manage_branch_protection.py ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} MediaEase MediaEase ${{ github.event.client_payload.ref }} false
           git checkout ${{ github.event.client_payload.ref }}
           MODULE_NAME="${{ github.event.client_payload.submodule }}"
           REF="${{ github.event.client_payload.ref }}"
@@ -62,7 +62,7 @@ jobs:
               git push origin $BRANCH_NAME
             fi
           fi
-          python workflows/manage_branch_protection.py ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} MediaEase MediaEase ${{ github.event.client_payload.ref }} true
+          python MediaEase-workflows/manage_branch_protection.py ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} MediaEase MediaEase ${{ github.event.client_payload.ref }} true
 
       - name: Get Scripts Latest Release
         id: get_latest_scripts
