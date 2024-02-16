@@ -22,9 +22,17 @@ jobs:
         run: |
           git config --global user.name 'tomcdj71'
           git config --global user.email 'actions@github.com'
+      
+      - name: Checkout workflows
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          repository: MediaEase/workflows
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
 
       - name: Update Submodule
         run: |
+          python workflows/manage_branch_protection.py ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} MediaEase MediaEase ${{ github.event.client_payload.ref }} false
           git checkout ${{ github.event.client_payload.ref }}
           MODULE_NAME="${{ github.event.client_payload.submodule }}"
           REF="${{ github.event.client_payload.ref }}"
@@ -38,21 +46,22 @@ jobs:
           if [ -n "$SUBMODULE_PATH" ]; then
             git submodule update --init --recursive --remote $SUBMODULE_PATH
             git config -f .gitmodules submodule.$SUBMODULE_PATH.branch $BRANCH_NAME
-            git submodule update --remote --merge --force $SUBMODULE_PATH
+            git -C $SUBMODULE_PATH fetch
+            git -C $SUBMODULE_PATH reset --hard origin/$BRANCH_NAME
+            git submodule update --remote --merge -X theirs $SUBMODULE_PATH
             MODULE_VERSION=$(git -C $SUBMODULE_PATH describe --tags `git -C $SUBMODULE_PATH rev-list --tags --max-count=1`)
             git add $SUBMODULE_PATH .gitmodules
           
             if git diff --cached --quiet; then
               echo "No changes to commit for $MODULE_NAME."
             else
-              git commit -m "Update $MODULE_NAME to $MODULE_VERSION ($BRANCH_NAME)" -m "$(cat $RELEASE_NOTE_PATH)"
+              git commit -m "Update $MODULE_NAME to $MODULE_VERSION ($BRANCH_NAME)"
               git fetch origin $BRANCH_NAME
               git merge origin/$BRANCH_NAME
               git push origin $BRANCH_NAME
             fi
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          python workflows/manage_branch_protection.py ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} MediaEase MediaEase ${{ github.event.client_payload.ref }} true
 
       - name: Get Scripts Latest Release
         id: get_latest_scripts
