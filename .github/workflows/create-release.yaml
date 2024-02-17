@@ -49,7 +49,6 @@ jobs:
             git config -f .gitmodules submodule.$SUBMODULE_PATH.branch $BRANCH_NAME
             git -C $SUBMODULE_PATH fetch
             git -C $SUBMODULE_PATH reset --hard origin/$BRANCH_NAME
-            git submodule update --remote --merge -X theirs $SUBMODULE_PATH
             MODULE_VERSION=$(git -C $SUBMODULE_PATH describe --tags `git -C $SUBMODULE_PATH rev-list --tags --max-count=1`)
             git add $SUBMODULE_PATH .gitmodules
           
