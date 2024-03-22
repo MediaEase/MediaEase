@@ -6,11 +6,15 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'scripts/docs/**'
+      - 'frontend/docs/**'
   pull_request:
     branches:
       - main
     paths:
       - 'docs/**'
+      - 'scripts/docs/**'
+      - 'frontend/docs/**'
 
 jobs:
   documentation-update:
