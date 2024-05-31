@@ -80,11 +80,14 @@ jobs:
         run: |
           if [ "${{ github.event.client_payload.submodule }}" == "HarmonyUI" ]; then
             SCRIPTS_CHANGES="- No changes"
-            HARMONYUI_CHANGES=$(echo "${{ steps.get_latest_harmonyui.outputs.description }}" | sed '1,4d' | sed "s/'/'\"'\"'/g")
+            HARMONYUI_CHANGES="${{ steps.get_latest_harmonyui.outputs.description }}"
           elif [ "${{ github.event.client_payload.submodule }}" == "scripts" ]; then
-            SCRIPTS_CHANGES=$(echo "${{ steps.get_latest_scripts.outputs.description }}" | sed '1,4d' | sed "s/'/'\"'\"'/g")
+            SCRIPTS_CHANGES="${{ steps.get_latest_scripts.outputs.description }}"
             HARMONYUI_CHANGES="- No changes"
-          fi  
+          fi
+
+          SCRIPTS_CHANGES_ESCAPED=$(echo "$SCRIPTS_CHANGES" | sed 's/\$/\\$/g; s/`/\\`/g')
+          HARMONYUI_CHANGES_ESCAPED=$(echo "$HARMONYUI_CHANGES" | sed 's/\$/\\$/g; s/`/\\`/g')
 
           cat <<EOF > release_notes.md
           This release contains the following changes:
@@ -95,10 +98,10 @@ jobs:
           # What's new in this release:
 
           ## MediaEase/scripts: 
-          $SCRIPTS_CHANGES
+          ${SCRIPTS_CHANGES_ESCAPED}
 
           ## MediaEase/HarmonyUI: 
-          $HARMONYUI_CHANGES
+          ${HARMONYUI_CHANGES_ESCAPED}
 
           ---
 
