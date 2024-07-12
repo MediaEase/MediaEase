@@ -1,0 +1,113 @@
+name: Update Submodules and Create Release
+
+on:
+  repository_dispatch:
+    types: [harmonyui-release, zen-release]
+
+jobs:
+  update-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Fetch All Branches
+        run: git fetch --all
+
+      - name: Build Scripts Release Note
+        id: build_zen_release_note
+        run: |
+          if [ -z "$ZEN_VERSION" ]; then
+            TAG=$(git -C zen describe --tags `git -C zen rev-list --tags --max-count=1` 2>/dev/null || echo "unknown")
+            if [ "$TAG" != "unknown" ]; then
+              ZEN_VERSION=$TAG
+              echo "ZEN_VERSION=$ZEN_VERSION" >> $GITHUB_ENV
+              ZEN_RELEASE_NOTES=$(git -C zen show $ZEN_VERSION --pretty=format:%b -s)
+            else
+              echo "ZEN_VERSION=unknown" >> $GITHUB_ENV
+              ZEN_RELEASE_NOTES="No release notes available."
+            fi
+          fi
+          echo "This release contains the following changes:" > zen_release_note.md
+          echo "- MediaEase/zen version: [${{ env.ZEN_VERSION }}]" >> zen_release_note.md
+          echo "---" >> zen_release_note.md
+          echo "## What's new?" >> zen_release_note.md
+          echo "### MediaEase/zen:" >> zen_release_note.md
+          echo "$ZEN_RELEASE_NOTES" >> zen_release_note.md
+
+      - name: Build HarmonyUI Release Note
+        id: build_harmonyui_release_note
+        run: |
+          if [ -z "$HARMONYUI_VERSION" ]; then
+            TAG=$(git -C harmonyui describe --tags `git -C harmonyui rev-list --tags --max-count=1` 2>/dev/null || echo "unknown")
+            if [ "$TAG" != "unknown" ]; then
+              HARMONYUI_VERSION=$TAG
+              echo "HARMONYUI_VERSION=$HARMONYUI_VERSION" >> $GITHUB_ENV
+              HARMONYUI_RELEASE_NOTES=$(git -C harmonyui show $HARMONYUI_VERSION --pretty=format:%b -s)
+            else
+              echo "HARMONYUI_VERSION=unknown" >> $GITHUB_ENV
+              HARMONYUI_RELEASE_NOTES="No release notes available."
+            fi
+          fi
+          echo "This release contains the following changes:" > harmonyui_release_note.md
+          echo "- MediaEase/HarmonyUI version: [${{ env.HARMONYUI_VERSION }}]" >> harmonyui_release_note.md
+          echo "---" >> harmonyui_release_note.md
+          echo "## What's new?" >> harmonyui_release_note.md
+          echo "### MediaEase/HarmonyUI:" >> harmonyui_release_note.md
+          echo "$HARMONYUI_RELEASE_NOTES" >> harmonyui_release_note.md
+
+      - name: Build Global Release Notes
+        id: build_release_notes
+        run: |
+          echo "This release contains the following changes:" > release_notes.md
+          echo "- MediaEase/zen version: [${{ env.ZEN_VERSION }}]" >> release_notes.md
+          echo "- MediaEase/HarmonyUI version: [${{ env.HARMONYUI_VERSION }}]" >> release_notes.md
+          echo "---" >> release_notes.md
+          echo "### MediaEase/zen:" >> release_notes.md
+          cat zen_release_note.md | sed '1d' >> release_notes.md
+          echo "### MediaEase/HarmonyUI:" >> release_notes.md
+          cat harmonyui_release_note.md | sed '1d' >> release_notes.md
+          echo "### MediaEase/MediaEase:" >> release_notes.md
+          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          echo "$COMMIT_MESSAGE" >> release_notes.md
+          echo "release_notes<<EOF" >> $GITHUB_ENV
+          cat release_notes.md >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Update Submodule
+        run: |
+          MODULE_NAME="${{ github.event.client_payload.submodule }}"
+          REF="${{ github.event.client_payload.ref }}"
+          BRANCH_NAME="${REF#refs/heads/}"
+          if [ "$MODULE_NAME" == "HarmonyUI" ]; then
+            SUBMODULE_PATH="harmonyui"
+            RELEASE_NOTE_PATH="harmonyui_release_note.md"
+          elif [ "$MODULE_NAME" == "zen" ]; then
+            SUBMODULE_PATH="zen"
+            RELEASE_NOTE_PATH="zen_release_note.md"
+          fi
+
+          if [ -n "$SUBMODULE_PATH" ]; then
+            git submodule update --init --recursive --remote --merge $SUBMODULE_PATH
+            git config -f .gitmodules submodule.$SUBMODULE_PATH.branch $BRANCH_NAME
+            git config --global user.name 'GitHub Actions'
+            git config --global user.email 'actions@github.com'
+            git submodule update --remote $SUBMODULE_PATH
+            MODULE_VERSION=$(git -C $SUBMODULE_PATH describe --tags `git -C $SUBMODULE_PATH rev-list --tags --max-count=1` 2>/dev/null || echo "unknown")
+            git add $SUBMODULE_PATH .gitmodules
+            git commit -m "Update $MODULE_NAME to $MODULE_VERSION ($BRANCH_NAME)" -m "$(cat $RELEASE_NOTE_PATH)"
+            git push origin $BRANCH_NAME
+          fi
+
+      - name: Create Release
+        uses: release-drafter/release-drafter@v5
+        with:
+          config-name: release-drafter-config.yaml
+          prerelease: ${{ github.ref == 'refs/heads/develop' }}
+          prerelease-identifier: ${{ steps.build_release_notes.outputs.release_notes }}
+          publish: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}

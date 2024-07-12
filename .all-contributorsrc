@@ -1,0 +1,31 @@
+{
+  "projectName": "MediaEase",
+  "projectOwner": "MediaEase",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "docs/CONTRIBUTORS.md",
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "angular",
+  "contributors": [
+    {
+      "login": "tomcdj71",
+      "name": "tomcdj71",
+      "avatar_url": "https://avatars.githubusercontent.com/u/15751462?v=4",
+      "profile": "https://github.com/tomcdj71",
+      "contributions": [
+        "ideas",
+        "code",
+        "doc",
+        "design",
+        "translation",
+        "test"
+      ]
+    }
+  ],
+  "contributorsPerLine": 9,
+  "linkToUsage": true
+}

@@ -1,0 +1,169 @@
+{
+    "check_status": true,
+    "commit_type": {
+        "enable": true,
+        "initial_value": "feature",
+        "infer_type_from_branch": true,
+        "append_emoji_to_label": false,
+        "append_emoji_to_commit": false,
+        "options": [
+            {
+                "value": "bc",
+                "label": "breaking-change",
+                "hint": "A change that changes the API or breaks backward compatibility for users.",
+                "emoji": "💥"
+            },
+            {
+                "value": "build",
+                "label": "build",
+                "hint": "Changes that affect the build system or external dependencies",
+                "emoji": "🚧"
+            },
+            {
+                "value": "ci",
+                "label": "ci",
+                "hint": "Changes to our CI configuration files and scripts",
+                "emoji": "🤖"
+            },
+            {
+                "value": "chore",
+                "label": "chore",
+                "hint": "Other changes that do not modify src or test files",
+                "emoji": "🧹"
+            },
+            {
+                "value": "deps",
+                "label": "dependencies",
+                "hint": "Change in project dependencies.",
+                "emoji": "📦"
+            },
+            {
+                "value": "doc",
+                "label": "documentation",
+                "hint": "Solely about the documentation of the project.",
+                "emoji": "📚"
+            },
+            {
+                "value": "enh",
+                "label": "enhancement",
+                "hint": "Enhancement of the code, not introducing new features.",
+                "emoji": "✨"
+            },
+            {
+                "value": "feature",
+                "label": "feat",
+                "hint": "New features or options.",
+                "emoji": "🌟"
+            },
+            {
+                "value": "fix",
+                "label": "fix",
+                "hint": "Inconsistencies or issues which will cause a problem for users or implementors.",
+                "emoji": "🐛"
+            },
+            {
+                "value": "maintenance",
+                "label": "maintenance",
+                "hint": "Generic maintenance tasks.",
+                "emoji": "🔧"
+            },
+            {
+                "value": "perf",
+                "label": "performance",
+                "hint": "Improving performance of the project, not introducing new features.",
+                "emoji": "🚀"
+            },
+            {
+                "value": "refactor",
+                "label": "refactor",
+                "hint": "Updating the code with simpler, easier to understand or more efficient syntax or methods, but not introducing new features.",
+                "emoji": "🔨"
+            },
+            {
+                "value": "test",
+                "label": "test",
+                "hint": "Adding missing tests or correcting existing tests",
+                "emoji": "🚨"
+            },
+            {
+                "value": "",
+                "label": "none"
+            }
+        ]
+    },
+    "commit_scope": {
+        "enable": true,
+        "custom_scope": false,
+        "initial_value": "",
+        "options": [
+            {
+                "value": "app",
+                "label": "app"
+            },
+            {
+                "value": "shared",
+                "label": "shared"
+            },
+            {
+                "value": "server",
+                "label": "server"
+            },
+            {
+                "value": "tools",
+                "label": "tools"
+            },
+            {
+                "value": "",
+                "label": "none"
+            }
+        ]
+    },
+    "check_ticket": {
+        "infer_ticket": true,
+        "confirm_ticket": true,
+        "add_to_title": true,
+        "append_hashtag": false,
+        "title_position": "start"
+    },
+    "commit_title": {
+        "max_size": 70
+    },
+    "commit_body": {
+        "enable": true,
+        "required": false
+    },
+    "commit_footer": {
+        "enable": true,
+        "initial_value": [],
+        "options": [
+            "closes",
+            "breaking-change",
+            "deprecated",
+            "custom"
+        ]
+    },
+    "breaking_change": {
+        "add_exclamation_to_title": true
+    },
+    "confirm_commit": true,
+    "print_commit_output": true,
+    "branch_pre_commands": [],
+    "branch_post_commands": [],
+    "branch_user": {
+        "enable": false,
+        "required": false,
+        "separator": "/"
+    },
+    "branch_type": {
+        "enable": true,
+        "separator": "/"
+    },
+    "branch_ticket": {
+        "enable": true,
+        "required": false,
+        "separator": "-"
+    },
+    "branch_description": {
+        "max_length": 70
+    }
+}

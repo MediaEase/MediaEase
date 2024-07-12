@@ -1,0 +1,80 @@
+name: Update Documentation
+
+on:
+  push:
+    # branches:
+    #   - main
+    # paths:
+    #   - "docs/**"
+    #   - "scripts/docs/**"
+    #   - "harmonyui/docs/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "scripts/docs/**"
+      - "harmonyui/docs/**"
+
+jobs:
+  documentation-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Verify 'docs-needed' Label
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const payload = context.payload.pull_request
+            const labelFound = payload.labels.some(label => label.name === 'docs-needed');
+            if (labelFound) {
+              core.setFailed("Pull request has 'docs-needed' label.");
+            }
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.x"
+
+      - name: Install Python Dependencies
+        run: pip install pyyaml
+
+      - name: Clone Documentation Repository
+        run: |
+          git clone https://github.com/MediaEase/docs.git tmp/
+
+      - name: Format README Files
+        run: |
+          python .github/scripts/mkdocs.py
+
+      - name: Update Documentation with READMEs
+        run: |
+          rm -rf tmp/docs/mediaease
+          mkdir -p tmp/docs/mediaease
+          cp -pR docs/*.md tmp/docs/mediaease/
+          cp README.md tmp/docs/mediaease/
+          tree -L 2 tmp/docs/mediaease/
+
+      - name: Check for Documentation Changes
+        id: check_changes
+        run: |
+          cd tmp/
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to documentation. Exiting workflow."
+            exit 0
+          fi
+
+      # - name: Commit and Push Documentation Changes
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_changes.outputs.changes == 'true'
+      #   run: |
+      #     echo "Committing and pushing changes."
+      #     cd tmp/
+      #     git config user.name "MediaEase Bot"
+      #     git config user.email "actions@github.com"
+      #     git add .
+      #     git commit -m "docs: update documentation [automated]"
+      #     git push --set-upstream https://x-access-token:${{ secrets.MEDIAEASE_ACCESS_TOKEN }}@github.com/MediaEase/docs HEAD
