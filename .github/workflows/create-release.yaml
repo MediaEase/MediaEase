@@ -97,6 +97,7 @@ jobs:
             git config --global user.email 'actions@github.com'
             git submodule update --remote $SUBMODULE_PATH
             MODULE_VERSION=$(git -C $SUBMODULE_PATH describe --tags `git -C $SUBMODULE_PATH rev-list --tags --max-count=1` 2>/dev/null || echo "unknown")
+            git fetch origin $BRANCH_NAME:$BRANCH_NAME || git checkout -b $BRANCH_NAME
             git add $SUBMODULE_PATH .gitmodules
             git commit -m "Update $MODULE_NAME to $MODULE_VERSION ($BRANCH_NAME)" -m "$(cat $RELEASE_NOTE_PATH)"
             git push origin $BRANCH_NAME
