@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
 
       - name: Verify 'docs-needed' Label
         if: github.event_name == 'pull_request'
@@ -33,6 +36,10 @@ jobs:
             if (labelFound) {
               core.setFailed("Pull request has 'docs-needed' label.");
             }
+
+      - name: Clone mflibs Repository
+        run: |
+          git clone https://github.com/MediaEase/mflibs.git mflibs/
 
       - name: Setup Python Environment
         uses: actions/setup-python@v2
@@ -46,17 +53,54 @@ jobs:
         run: |
           git clone https://github.com/MediaEase/docs.git tmp/
 
+      - name: Update Documentation with READMEs
+        run: |
+          rm -rf tmp/docs/mediaease/components/api/openapi.yaml
+          mkdir -p tmp/docs/mediaease
+          mkdir -p tmp/docs/mediaease/components
+          mkdir -p tmp/docs/mediaease/components/harmonyui
+          mkdir -p tmp/docs/mediaease/components/zen
+          mkdir -p tmp/docs/mediaease/components/api
+          mkdir -p tmp/docs/mediaease/components/mflibs
+          cp -pR harmonyui/config/packages/nelmio_api_doc.yaml tmp/docs/mediaease/components/api
+          cp -pR docs/* tmp/docs/mediaease
+          cp -pR harmonyui/docs/* tmp/docs/mediaease/components/harmonyui
+          cp -pR zen/docs/* tmp/docs/mediaease/components/zen
+          cp -pR mflibs/docs/* tmp/docs/mediaease/components/mflibs
+          cp -pR mflibs/readme.md tmp/docs/mediaease/components/mflibs/README.md
+          cp -pR README.md tmp/docs/mediaease
+          cp -pR harmonyui/README.md tmp/docs/mediaease/components/harmonyui/
+          cp -pR zen/README.md tmp/docs/mediaease/components/zen/
+          if [ -d "tmp/docs/mediaease/docs/" ]; then
+            rm -rf tmp/docs/mediaease/docs
+          fi
+          tree -L 2 tmp/docs/mediaease
+      # get the current HarmonyUI version from the harmonyui repository main branch
       - name: Format README Files
         run: |
           python .github/scripts/mkdocs.py
+          python .github/scripts/openapi.py
+          HARMONYUI_VERSION=$(git -C harmonyui tag --list 'v*' | grep -vE '(-beta|-alpha)' | xargs -I {} git -C harmonyui rev-list -n 1 {} | xargs git -C harmonyui describe --tags --exact-match 2>/dev/null || echo "unknown")
+          HARMONYUI_VERSION=$(echo $HARMONYUI_VERSION | sed -E 's/^v//')
+          sed -i "s/version: .*/version: $HARMONYUI_VERSION/g" ./openapi.yaml
+          sed -i '/url:/d' ./openapi.yaml
+          sed -i '/^servers:$/d; /^ *description: Local development server$/d; /^  license:$/!b;n;c\    name: MIT\n    url: https://opensource.org/licenses/MIT' ./openapi.yaml
+          if [ -f "tmp/docs/mediaease/components/api/openapi.yaml" ]; then
+            rm -rf tmp/docs/mediaease/components/api/openapi.yaml
+          fi
+          if [ -f "tmp/docs/mediaease/components/api/nelmio_api_doc.yaml" ]; then
+            rm -rf tmp/docs/mediaease/components/api/nelmio_api_doc.yaml
+          fi
+          mv ./openapi.yaml tmp/docs/mediaease/components/api/openapi.yaml
+          chmod +x .github/scripts/format-alerts.sh
+          ./.github/scripts/format-alerts.sh
 
-      - name: Update Documentation with READMEs
-        run: |
-          rm -rf tmp/docs/mediaease
-          mkdir -p tmp/docs/mediaease
-          cp -pR docs/*.md tmp/docs/mediaease/
-          cp README.md tmp/docs/mediaease/
-          tree -L 2 tmp/docs/mediaease/
+      - name: Last edits
+        uses: seeebiii/redoc-cli-github-action@v10
+        with:
+          args: |
+            lint tmp/docs/mediaease/components/api/openapi.yaml
+            bundle docs/mediaease/components/api/openapi.yaml --output tmp/docs/mediaease/components/api/dist.json
 
       - name: Check for Documentation Changes
         id: check_changes
@@ -68,13 +112,13 @@ jobs:
             exit 0
           fi
 
-      # - name: Commit and Push Documentation Changes
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.check_changes.outputs.changes == 'true'
-      #   run: |
-      #     echo "Committing and pushing changes."
-      #     cd tmp/
-      #     git config user.name "MediaEase Bot"
-      #     git config user.email "actions@github.com"
-      #     git add .
-      #     git commit -m "docs: update documentation [automated]"
-      #     git push --set-upstream https://x-access-token:${{ secrets.MEDIAEASE_ACCESS_TOKEN }}@github.com/MediaEase/docs HEAD
+      - name: Commit and Push Documentation Changes
+        if: github.event_name == 'push' && ${{ contains(github.ref, 'main') }}
+        run: |
+          echo "Committing and pushing changes."
+          cd tmp/
+          git config user.name "MediaEase Bot"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "docs: update documentation [automated]"
+          git push --set-upstream https://x-access-token:${{ secrets.MEDIAEASE_ACCESS_TOKEN }}@github.com/MediaEase/docs HEAD
