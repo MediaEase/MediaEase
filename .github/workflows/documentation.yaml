@@ -49,6 +49,15 @@ jobs:
       - name: Install Python Dependencies
         run: pip install pyyaml
 
+      - name: Install APT dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gawk make
+          git clone --recursive https://github.com/reconquest/shdoc
+          cd shdoc
+          sudo make install
+          cd
+
       - name: Clone Documentation Repository
         run: |
           git clone https://github.com/MediaEase/docs.git tmp/
@@ -62,6 +71,12 @@ jobs:
           mkdir -p tmp/docs/mediaease/components/zen
           mkdir -p tmp/docs/mediaease/components/api
           mkdir -p tmp/docs/mediaease/components/mflibs
+          chmod +x .github/scripts/auto-docs.sh
+          ./.github/scripts/auto-docs.sh zen/src
+          if [ -d "tmp/docs/mediaease/components/zen/src" ]; then
+            mv tmp/docs/mediaease/components/zen/src/* tmp/docs/mediaease/components/zen/
+            rm -rf tmp/docs/mediaease/components/zen/src
+          fi
           cp -pR harmonyui/config/packages/nelmio_api_doc.yaml tmp/docs/mediaease/components/api
           cp -pR docs/* tmp/docs/mediaease
           cp -pR harmonyui/docs/* tmp/docs/mediaease/components/harmonyui
