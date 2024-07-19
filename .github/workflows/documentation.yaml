@@ -53,7 +53,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gawk make
-          git clone --recursive https://github.com/reconquest/shdoc
+          git clone --recursive https://github.com/MediaEase/shdoc
           cd shdoc
           sudo make install
           cd
