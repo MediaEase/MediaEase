@@ -8,19 +8,20 @@ sudo -i
 
 ## Download the Installer
 
-    - Using wget:
+- Using wget:
 
 ```bash
 wget -qO setup.sh https://raw.githubusercontent.com/MediaEase/MediaEase/develop/setup.sh && chmod +x setup.sh
 ```
 
-    - Using curl:
+- Using curl:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/MediaEase/MediaEase/develop/setup.sh -o setup.sh && chmod +x setup.sh
 ```
 
 ## Customize Your Installation
+
 
 > [!TIP]
 > Define your custom variables. The `username`, `password`, and `email` are required.

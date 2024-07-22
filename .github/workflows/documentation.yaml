@@ -90,7 +90,7 @@ jobs:
             rm -rf tmp/docs/mediaease/docs
           fi
           tree -L 2 tmp/docs/mediaease
-      # get the current HarmonyUI version from the harmonyui repository main branch
+
       - name: Format README Files
         run: |
           python .github/scripts/mkdocs.py
