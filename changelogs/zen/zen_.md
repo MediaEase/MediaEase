@@ -2,5 +2,5 @@
 
 ### This release contains the following changes:
 
-### 🚀 Chores
-- rename zen::apt to zen::dependency::apt ([4358fe5](https://github.com/MediaEase/zen/commit/4358fe5c3d8e7e0533eb942f6e2886e2785c0f82) by @tomcdj71)
+### 🩹 Bug Fixes
+- dependency file was incorrectly called ([818c70d](https://github.com/MediaEase/zen/commit/818c70daabfa05723443d276f058b7d3d9da8f40) by @tomcdj71)
