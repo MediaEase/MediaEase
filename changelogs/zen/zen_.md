@@ -2,5 +2,7 @@
 
 ### This release contains the following changes:
 
+### 🚀 Chores
+- add default logo when creating a new app ([8376d7c](https://github.com/MediaEase/zen/commit/8376d7cac99040e61d63148675191eb596b71c72) by @tomcdj71)
 ### 🩹 Bug Fixes
-- ensure we are using the latest MediaEase build ([2b8a444](https://github.com/MediaEase/zen/commit/2b8a444257bc37581019cd2e74d2ee1d706fe368) by @tomcdj71)
+- use update-locale after locale-gen ([86edec2](https://github.com/MediaEase/zen/commit/86edec2970f70023ace6a5421171a3cbdbc3c561) by @tomcdj71)
