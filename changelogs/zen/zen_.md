@@ -2,5 +2,5 @@
 
 ### This release contains the following changes:
 
-### 🩹 Bug Fixes
-- permanently fix the locale generation ([c6cbfb3](https://github.com/MediaEase/zen/commit/c6cbfb3e05536f1c59a8c569b8bd0a419a6f6e16) by @tomcdj71)
+### 🚀 Chores
+- rename zen::apt to zen::dependency::apt ([b9e0471](https://github.com/MediaEase/zen/commit/b9e04716f54f335d8ff10d76bb4ee3b8e2edd0f9) by @tomcdj71)
