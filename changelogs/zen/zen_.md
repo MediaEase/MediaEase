@@ -2,5 +2,5 @@
 
 ### This release contains the following changes:
 
-### 🚀 Chores
-- add debug steps when generating locales ([2326b58](https://github.com/MediaEase/zen/commit/2326b581268740af61b54ac574e36f04f1329240) by @tomcdj71)
+### 🩹 Bug Fixes
+- permanently fix the locale generation ([c6cbfb3](https://github.com/MediaEase/zen/commit/c6cbfb3e05536f1c59a8c569b8bd0a419a6f6e16) by @tomcdj71)
