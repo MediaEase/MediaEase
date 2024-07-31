@@ -1,6 +1,6 @@
 [submodule "zen"]
-path = zen
-url = https://github.com/MediaEase/zen
+	path = zen
+	url = https://github.com/MediaEase/zen
 branch = develop
 [submodule "harmonyui"]
 path = harmonyui
