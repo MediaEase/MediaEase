@@ -125,7 +125,7 @@ jobs:
           set -e
           MODULE_NAME="${{ github.event.client_payload.submodule }}"
           BRANCH_NAME="${{ github.event.client_payload.ref }}"
-          if [ "$MODULE_NAME" == "HarmonyUI" ]; then
+          if [ "$MODULE_NAME" == "harmonyui" ]; then
             SUBMODULE_PATH="${MODULE_NAME}"
             REPO_URL="https://github.com/MediaEase/${MODULE_NAME}"
             RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" ${{ needs.retrieve-tags.outputs.harmonyui_release_url }} | jq -r '.body')
