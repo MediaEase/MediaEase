@@ -2,8 +2,5 @@
 
 ### This release contains the following changes:
 
-### 🎉 New Features
-- prepare the apt dependencies installation for a future multi-os support ([a657519](https://github.com/MediaEase/zen/commit/a657519c5daa436306fc7f84caaff85b38d37f3e) by @tomcdj71)
----
 ### 🚀 Chores
-- move common::git function to a new git module ([66293ad](https://github.com/MediaEase/zen/commit/66293adafc47e84732c877fe268c8a032c10f97a) by @tomcdj71)
+- update software files to use new git module functions ([1ec6cfc](https://github.com/MediaEase/zen/commit/1ec6cfca3ae2f50f4b86c4e5e706f7dfea4fc201) by @tomcdj71)
