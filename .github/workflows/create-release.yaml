@@ -24,18 +24,13 @@ jobs:
       - name: Retrieve Zen Tag and Release Notes
         id: retrieve_zen_tag
         run: |
-          TAG=$(git -C zen describe --tags $(git -C zen rev-list --tags --max-count=1) 2>/dev/null || echo "unknown")
-          if [ "$TAG" != "unknown" ]; then
-            ZEN_VERSION=$TAG
-            ZEN_RELEASE_URL="https://api.github.com/repos/MediaEase/zen/releases/tags/$TAG"
-            ZEN_RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $ZEN_RELEASE_URL | jq -r '.body')
-          else
-            ZEN_VERSION="unknown"
-            ZEN_RELEASE_NOTES="No release notes available."
-          fi
+          TAG=$(git -C zen describe --tags $(git -C zen rev-list --tags --max-count=1))
+          ZEN_VERSION=$TAG
+          ZEN_RELEASE_URL="https://api.github.com/repos/MediaEase/zen/releases/tags/$TAG"
+          ZEN_RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $ZEN_RELEASE_URL | jq -r '.body')
           echo "zen_version=$ZEN_VERSION" >> $GITHUB_OUTPUT
           changelog_dir="changelogs/zen"
-          changelog_file="${changelog_dir}/zen_${ZEN_VERSION}.md"
+          changelog_file="${changelog_dir}/zen_${{ zen_version }}.md"
           mkdir -p $changelog_dir
           echo "$ZEN_RELEASE_NOTES" > $changelog_file
           echo "zen_changelog=$changelog_file" >> $GITHUB_OUTPUT
@@ -44,18 +39,12 @@ jobs:
       - name: Retrieve HarmonyUI Tag and Release Notes
         id: retrieve_harmonyui_tag
         run: |
-          TAG=$(git -C harmonyui describe --tags $(git -C harmonyui rev-list --tags --max-count=1) 2>/dev/null || echo "unknown")
-          if [ "$TAG" != "unknown" ]; then
-            HARMONYUI_VERSION=$TAG
-            HARMONYUI_RELEASE_URL="https://api.github.com/repos/MediaEase/HarmonyUI/releases/tags/$TAG"
-            HARMONYUI_RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $HARMONYUI_RELEASE_URL | jq -r '.body')
-          else
-            HARMONYUI_VERSION="unknown"
-            HARMONYUI_RELEASE_NOTES="No release notes available."
-          fi
-          echo "harmonyui_version=$HARMONYUI_VERSION" >> $GITHUB_OUTPUT
+          TAG=$(git -C harmonyui describe --tags $(git -C harmonyui rev-list --tags --max-count=1))
+          HARMONYUI_RELEASE_URL="https://api.github.com/repos/MediaEase/HarmonyUI/releases/tags/$TAG"
+          HARMONYUI_RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $HARMONYUI_RELEASE_URL | jq -r '.body')
+          echo "harmonyui_version=$TAG" >> $GITHUB_OUTPUT
           changelog_dir="changelogs/harmonyui"
-          changelog_file="${changelog_dir}/harmonyui_${HARMONYUI_VERSION}.md"
+          changelog_file="${changelog_dir}/harmonyui_${{ harmonyui_version }}.md"
           mkdir -p $changelog_dir
           echo "$HARMONYUI_RELEASE_NOTES" > $changelog_file
           echo "harmonyui_changelog=$changelog_file" >> $GITHUB_OUTPUT
@@ -123,35 +112,27 @@ jobs:
       - name: Update Submodule to Latest Tag
         run: |
           set -e
-          MODULE_NAME="${{ github.event.client_payload.submodule }}"
           BRANCH_NAME="${{ github.event.client_payload.ref }}"
-          if [ "$MODULE_NAME" == "harmonyui" ]; then
-            SUBMODULE_PATH="${MODULE_NAME}"
-            REPO_URL="https://github.com/MediaEase/${MODULE_NAME}"
-            RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" ${{ needs.retrieve-tags.outputs.harmonyui_release_url }} | jq -r '.body')
-            mkdir -p changelogs/${SUBMODULE_PATH}
-            echo "$RELEASE_NOTES" > changelogs/${SUBMODULE_PATH}/${SUBMODULE_PATH}_${HARMONYUI_VERSION}.md
-          elif [ "$MODULE_NAME" == "zen" ]; then
-            SUBMODULE_PATH="${MODULE_NAME}"
-            REPO_URL="https://github.com/MediaEase/${MODULE_NAME}"
-            RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" ${{ needs.retrieve-tags.outputs.zen_release_url }} | jq -r '.body')
-            mkdir -p changelogs/${SUBMODULE_PATH}
-            echo "$RELEASE_NOTES" > changelogs/${SUBMODULE_PATH}/${SUBMODULE_PATH}_${ZEN_VERSION}.md
+          MODULE_NAME="${{ github.event.client_payload.submodule }}"
+          commit_needed=false
+          git submodule update --init --recursive --remote "$MODULE_NAME" && \
+          git -C "$MODULE_NAME/" fetch && \
+          git -C "$MODULE_NAME/" reset --hard "origin/$BRANCH_NAME"
+          if ! git diff --quiet --exit-code $MODULE_NAME/; then
+            MODULE_VERSION=$(git -C "$MODULE_NAME/" describe --tags $(git -C "$MODULE_NAME/" rev-list --tags --max-count=1))
+            MODULE_RELEASE_URL="https://api.github.com/repos/MediaEase/$MODULE_NAME/releases/tags/$MODULE_VERSION"
+            MODULE_RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $MODULE_RELEASE_URL | jq -r '.body' || echo "No release notes available.")
+            changelog_dir="changelogs/$MODULE_NAME"
+            changelog_file="${changelog_dir}/${MODULE_NAME}_${MODULE_VERSION}.md"
+            mkdir -p "$changelog_dir"
+            echo "$MODULE_RELEASE_NOTES" > "$changelog_file"
+            git add "$MODULE_NAME/"
+            git add "$changelog_file"
+            git commit -m "chore: update $MODULE_NAME submodule to $MODULE_VERSION ($BRANCH_NAME)" -m "$(cat $changelog_file)"
+            commit_needed=true
           fi
-          if [ -n "$SUBMODULE_PATH" ]; then
-            git submodule add -f $REPO_URL $SUBMODULE_PATH
-            cd $SUBMODULE_PATH
-            if [ "$BRANCH_NAME" == "refs/heads/develop" ]; then
-              LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | grep -E '\-(alpha|beta|rc)' | head -n 1)
-            elif [ "$BRANCH_NAME" == "refs/heads/main" ]; then
-              LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | grep -vE '\-(alpha|beta|rc)' | head -n 1)
-            fi
-            git checkout $LATEST_TAG
-            cd -
-            git add $SUBMODULE_PATH .gitmodules changelogs/
-            MODULE_VERSION=$(git -C $SUBMODULE_PATH describe --tags $(git -C $SUBMODULE_PATH rev-list --tags --max-count=1) 2>/dev/null || echo "unknown")
-            git commit -m "Update $MODULE_NAME to $MODULE_VERSION" -m "$(cat $RELEASE_NOTES || echo 'No release notes available.')"
-            git push origin develop
+          if [ "$commit_needed" = true ]; then
+            git push origin "$BRANCH_NAME"
           fi
 
   create-release:
