@@ -3,7 +3,5 @@
 ### This release contains the following changes:
 
 ### 🚀 Chores
-- update zen::prompt::yn display ([dab7924](https://github.com/MediaEase/zen/commit/dab79243b0c1c12b46d7cd79369544346415d0a3) by @tomcdj71)
-### 🌐 Internationalization
-- update translations files ([3efc37c](https://github.com/MediaEase/zen/commit/3efc37c6cf988ff0dcb2df3765a7dc2e3c738b7b) by @tomcdj71)
-- update translation files ([553283a](https://github.com/MediaEase/zen/commit/553283a8f4865dd6f71c09689057e08e004722fe) by @tomcdj71)
+- update prompt messaging ([417f04e](https://github.com/MediaEase/zen/commit/417f04e37836c2416070eaf6b0492132d2b79d89) by @tomcdj71)
+- remove sendmail and sendmail-bin from dependencies.yaml ([a026e76](https://github.com/MediaEase/zen/commit/a026e76f12fe204df908d9597c55e67734bf7543) by @tomcdj71)
