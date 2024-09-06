@@ -2,10 +2,12 @@
 
 ### This release contains the following changes:
 
+### 🎉 New Features
+- zen::validate::input can now validate SemVer strings ([7023036](https://github.com/MediaEase/zen/commit/7023036da7ec51b9b3856d2f1f8e73849af70cef) by @tomcdj71)
+- add a version option processing ([574e5e6](https://github.com/MediaEase/zen/commit/574e5e6e8f6fee5bad239637fb2baa9de3918c8f) by @tomcdj71)
+---
 ### 🚀 Chores
-- global enhancements when generating an outro infobox ([6e47bb3](https://github.com/MediaEase/zen/commit/6e47bb329b2d62cbb38cf575f20f50074af3766c) by @tomcdj71)
-- silent format/validate/reload of caddy configuration when generating a reverse proxy ([af9df34](https://github.com/MediaEase/zen/commit/af9df34f50778f3006745ad2da7ef5dda4bcf73f) by @tomcdj71)
-### 🩹 Bug Fixes
-- proxy route matching ([823aad8](https://github.com/MediaEase/zen/commit/823aad85ba28f914cffe84290c945504097ec268) by @tomcdj71)
-### 🌐 Internationalization
-- add missing translations keys ([f96738a](https://github.com/MediaEase/zen/commit/f96738af47e939a4dcfaad740a83ed433b4dfbfd) by @tomcdj71)
+- remove bad space in config.yaml files ([7ed4d45](https://github.com/MediaEase/zen/commit/7ed4d457e983e76ad929dc08118f4ea31af218ff) by @tomcdj71)
+- check binaries versions before download them ([515d28d](https://github.com/MediaEase/zen/commit/515d28d8a69e14e79549cdcf09994b90e29c107d) by @tomcdj71)
+### 🤷 Other Changes
+- 3381a41b4b3146129684d349ae61ef0dcb12e155 ux: reorder informations in infobox outro ([3381a41](https://github.com/MediaEase/zen/commit/3381a41b4b3146129684d349ae61ef0dcb12e155) by @tomcdj71)
