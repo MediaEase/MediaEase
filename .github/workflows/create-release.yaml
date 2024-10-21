@@ -5,158 +5,108 @@ on:
     types: [harmonyui-release, zen-release]
 
 jobs:
-  retrieve-tags:
+  update-and-release:
     runs-on: ubuntu-latest
-    outputs:
-      zen_version: ${{ steps.retrieve_zen_tag.outputs.zen_version }}
-      zen_release_url: ${{ steps.retrieve_zen_tag.outputs.zen_release_url }}
-      zen_changelog: ${{ steps.retrieve_zen_tag.outputs.zen_changelog }}
-      harmonyui_version: ${{ steps.retrieve_harmonyui_tag.outputs.harmonyui_version }}
-      harmonyui_release_url: ${{ steps.retrieve_harmonyui_tag.outputs.harmonyui_release_url }}
-      harmonyui_changelog: ${{ steps.retrieve_harmonyui_tag.outputs.harmonyui_changelog }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 0
+          ref: ${{ github.event.client_payload.ref }}
 
-      - name: Retrieve Zen Tag and Release Notes
-        id: retrieve_zen_tag
-        run: |
-          TAG=$(git -C zen describe --tags $(git -C zen rev-list --tags --max-count=1))
-          ZEN_VERSION=$TAG
-          ZEN_RELEASE_URL="https://api.github.com/repos/MediaEase/zen/releases/tags/$TAG"
-          ZEN_RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $ZEN_RELEASE_URL | jq -r '.body')
-          echo "zen_version=$ZEN_VERSION" >> $GITHUB_OUTPUT
-          changelog_dir="changelogs/zen"
-          changelog_file="${changelog_dir}/zen_${{ zen_version }}.md"
-          mkdir -p $changelog_dir
-          echo "$ZEN_RELEASE_NOTES" > $changelog_file
-          echo "zen_changelog=$changelog_file" >> $GITHUB_OUTPUT
-          echo "zen_release_url=$ZEN_RELEASE_URL" >> $GITHUB_OUTPUT
-
-      - name: Retrieve HarmonyUI Tag and Release Notes
-        id: retrieve_harmonyui_tag
-        run: |
-          TAG=$(git -C harmonyui describe --tags $(git -C harmonyui rev-list --tags --max-count=1))
-          HARMONYUI_RELEASE_URL="https://api.github.com/repos/MediaEase/HarmonyUI/releases/tags/$TAG"
-          HARMONYUI_RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $HARMONYUI_RELEASE_URL | jq -r '.body')
-          echo "harmonyui_version=$TAG" >> $GITHUB_OUTPUT
-          changelog_dir="changelogs/harmonyui"
-          changelog_file="${changelog_dir}/harmonyui_${{ harmonyui_version }}.md"
-          mkdir -p $changelog_dir
-          echo "$HARMONYUI_RELEASE_NOTES" > $changelog_file
-          echo "harmonyui_changelog=$changelog_file" >> $GITHUB_OUTPUT
-          echo "harmonyui_release_url=$HARMONYUI_RELEASE_URL" >> $GITHUB_OUTPUT
-
-  build-release-notes:
-    needs: retrieve-tags
-    runs-on: ubuntu-latest
-    outputs:
-      release_notes: ${{ steps.build_release_notes.outputs.release_notes }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 0
-
-      - name: Build Global Release Notes
-        id: build_release_notes
-        run: |
-          ZEN_VERSION="${{ needs.retrieve-tags.outputs.zen_version }}"
-          HARMONYUI_VERSION="${{ needs.retrieve-tags.outputs.harmonyui_version }}"
-          ZEN_RELEASE_NOTES=$(cat ${{ needs.retrieve-tags.outputs.zen_changelog }} | sed '1,5d')
-          HARMONYUI_RELEASE_NOTES=$(cat ${{ needs.retrieve-tags.outputs.harmonyui_changelog }} | sed '1,5d')
-          echo "# Global Release Notes" > CHANGELOG.md
-          echo "This release contains updates for the following components:" >> CHANGELOG.md
-          echo "- [MediaEase/zen](https://github.com/MediaEase/zen/releases/tag/$ZEN_VERSION) $ZEN_VERSION" >> CHANGELOG.md
-          echo "- [MediaEase/HarmonyUI](https://github.com/MediaEase/HarmonyUI/releases/tag/$HARMONYUI_VERSION) $HARMONYUI_VERSION" >> CHANGELOG.md
-          echo "---" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          if [ -n "$ZEN_RELEASE_NOTES" ]; then
-            echo "## MediaEase/zen :" >> CHANGELOG.md
-            echo "$ZEN_RELEASE_NOTES" >> CHANGELOG.md
-            echo "" >> CHANGELOG.md
-          fi
-          if [ -n "$HARMONYUI_RELEASE_NOTES" ]; then
-            echo "## MediaEase/HarmonyUI :" >> CHANGELOG.md
-            echo "$HARMONYUI_RELEASE_NOTES" >> CHANGELOG.md
-            echo "" >> CHANGELOG.md
-          fi
-          echo "## MediaEase/MediaEase :" >> CHANGELOG.md
-          LAST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
-          echo "Changes since last tag ($LAST_TAG):" >> CHANGELOG.md
-          git log $LAST_TAG..HEAD --pretty=format:"- %s" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-          cat CHANGELOG.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Configure Git
-        run: |
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'actions@github.com'
-
-      - name: Ensure Develop Branch Exists and Checkout
-        run: |
-          git fetch origin
-          if git rev-parse --verify origin/develop; then
-            git checkout develop
-          else
-            git checkout -b develop
-            git push origin develop
-          fi
-
-      - name: Update Submodule to Latest Tag
+      - name: Update Submodule to Latest Commit
+        id: update_submodule
         run: |
           set -e
           BRANCH_NAME="${{ github.event.client_payload.ref }}"
           MODULE_NAME="${{ github.event.client_payload.submodule }}"
-          commit_needed=false
-          git submodule update --init --recursive --remote "$MODULE_NAME" && \
-          git -C "$MODULE_NAME/" fetch && \
-          git -C "$MODULE_NAME/" reset --hard "origin/$BRANCH_NAME"
-          if ! git diff --quiet --exit-code $MODULE_NAME/; then
-            MODULE_VERSION=$(git -C "$MODULE_NAME/" describe --tags $(git -C "$MODULE_NAME/" rev-list --tags --max-count=1))
-            MODULE_RELEASE_URL="https://api.github.com/repos/MediaEase/$MODULE_NAME/releases/tags/$MODULE_VERSION"
-            MODULE_RELEASE_NOTES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $MODULE_RELEASE_URL | jq -r '.body' || echo "No release notes available.")
-            changelog_dir="changelogs/$MODULE_NAME"
-            changelog_file="${changelog_dir}/${MODULE_NAME}_${MODULE_VERSION}.md"
-            mkdir -p "$changelog_dir"
-            echo "$MODULE_RELEASE_NOTES" > "$changelog_file"
-            git add "$MODULE_NAME/"
-            git add "$changelog_file"
-            git commit -m "chore: update $MODULE_NAME submodule to $MODULE_VERSION ($BRANCH_NAME)" -m "$(cat $changelog_file)"
-            commit_needed=true
-          fi
-          if [ "$commit_needed" = true ]; then
-            git push origin "$BRANCH_NAME"
-          fi
+          COMMIT_SHA="${{ github.event.client_payload.sha }}"
+          git submodule update --init "$MODULE_NAME"
+          cd "$MODULE_NAME"
+          git fetch origin "$BRANCH_NAME"
+          git checkout "$COMMIT_SHA"
+          cd ..
+          git add "$MODULE_NAME"
+          echo "module_name=$MODULE_NAME" >> $GITHUB_OUTPUT
+          echo "commit_message=chore: update $MODULE_NAME submodule to $BRANCH_NAME at $COMMIT_SHA" >> $GITHUB_OUTPUT
 
-  create-release:
-    needs: [build-release-notes]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Commit and Push Changes
+        uses: EndBug/add-and-commit@v9
         with:
-          submodules: true
-          fetch-depth: 0
+          author_name: "tomcdj71"
+          author_email: "contact.tomc@yahoo.fr"
+          message: ${{ steps.update_submodule.outputs.commit_message }}
+          add: ${{ steps.update_submodule.outputs.module_name }}
+          push: true
+          pull: "--rebase --autostash"
 
-      - name: Check Prerelease ID
+      - name: Retrieve Submodule Tags and Release Notes
+        id: retrieve_tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -s https://raw.githubusercontent.com/MediaEase/MediaEase/main/prerelease_identifier.txt > ./prerelease.txt
-          echo "PRERELEASE_ID=$(cat ./prerelease.txt)" >> $GITHUB_ENV
+          ZEN_DIR="zen"
+          ZEN_TAG=$(git -C "$ZEN_DIR" describe --tags --abbrev=0)
+          ZEN_RELEASE_URL="https://api.github.com/repos/MediaEase/Zen/releases/tags/$ZEN_TAG"
+          ZEN_RELEASE_NOTES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$ZEN_RELEASE_URL" | jq -r '.body')
+          mkdir -p changelogs
+          echo "$ZEN_RELEASE_NOTES" > "changelogs/zen_${ZEN_TAG}.md"
+          echo "ZEN_VERSION=$ZEN_TAG" >> $GITHUB_ENV
+          echo "ZEN_RELEASE_URL=$ZEN_RELEASE_URL" >> $GITHUB_ENV
+          echo "ZEN_RELEASE_NOTES=$(cat changelogs/zen_${ZEN_TAG}.md)" >> $GITHUB_ENV
+          HARMONYUI_DIR="harmonyui"
+          HARMONYUI_TAG=$(git -C "$HARMONYUI_DIR" describe --tags --abbrev=0)
+          HARMONYUI_RELEASE_URL="https://api.github.com/repos/MediaEase/HarmonyUI/releases/tags/$HARMONYUI_TAG"
+          HARMONYUI_RELEASE_NOTES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$HARMONYUI_RELEASE_URL" | jq -r '.body')
+          echo "$HARMONYUI_RELEASE_NOTES" > "changelogs/harmonyui_${HARMONYUI_TAG}.md"
+          echo "HARMONYUI_VERSION=$HARMONYUI_TAG" >> $GITHUB_ENV
+          echo "HARMONYUI_RELEASE_URL=$HARMONYUI_RELEASE_URL" >> $GITHUB_ENV
+          echo "HARMONYUI_RELEASE_NOTES=$(cat changelogs/harmonyui_${HARMONYUI_TAG}.md)" >> $GITHUB_ENV
+
+      - name: Build Global Release Notes
+        id: build_release_notes
+        run: |
+          ZEN_VERSION="${ZEN_VERSION}"
+          HARMONYUI_VERSION="${HARMONYUI_VERSION}"
+          ZEN_RELEASE_NOTES="${ZEN_RELEASE_NOTES}"
+          HARMONYUI_RELEASE_NOTES="${HARMONYUI_RELEASE_NOTES}"
+          ZEN_RELEASE_URL="${ZEN_RELEASE_URL}"
+          HARMONYUI_RELEASE_URL="${HARMONYUI_RELEASE_URL}"
+          echo "# Global Release Notes" > CHANGELOG.md
+          echo "This release includes updates from the following components:" >> CHANGELOG.md
+          echo "- [MediaEase/Zen](${ZEN_RELEASE_URL}) - Version ${ZEN_VERSION}" >> CHANGELOG.md
+          echo "- [MediaEase/HarmonyUI](${HARMONYUI_RELEASE_URL}) - Version ${HARMONYUI_VERSION}" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          if [ -n "$ZEN_RELEASE_NOTES" ]; then
+            echo "## MediaEase/Zen" >> CHANGELOG.md
+            echo "$ZEN_RELEASE_NOTES" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+          fi
+          if [ -n "$HARMONYUI_RELEASE_NOTES" ]; then
+            echo "## MediaEase/HarmonyUI" >> CHANGELOG.md
+            echo "$HARMONYUI_RELEASE_NOTES" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+          fi
+          echo "## MediaEase/MediaEase" >> CHANGELOG.md
+          LAST_TAG=$(git describe --tags --abbrev=0 || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            echo "Changes since last tag ($LAST_TAG):" >> CHANGELOG.md
+            git log "$LAST_TAG"..HEAD --pretty=format:"- %s" >> CHANGELOG.md
+          else
+            echo "Initial release." >> CHANGELOG.md
+          fi
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
+          cat CHANGELOG.md >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Create Release
-        uses: release-drafter/release-drafter@v6
+        uses: actions/create-release@v1
         with:
-          config-name: release-drafter-config.yaml
+          tag_name: ${{ github.event.client_payload.ref }}
+          release_name: ${{ github.event.client_payload.ref }}
+          body: "${{ env.RELEASE_NOTES }}"
+          draft: false
           prerelease: ${{ contains(github.event.client_payload.ref, 'develop') }}
-          prerelease-identifier: ${{ env.PRERELEASE_ID }}
-          publish: true
-          header: ${{ needs.build-release-notes.outputs.release_notes }}
         env:
           GITHUB_TOKEN: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
