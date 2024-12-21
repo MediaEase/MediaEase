@@ -1,0 +1,65 @@
+name: Update Documentation
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  documentation-update:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.x"
+
+      - name: Install Python Dependencies
+        run: pip install pyyaml
+
+      - name: Clone Documentation Repository
+        run: |
+          git clone https://github.com/MediaEase/docs.git tmp/
+
+      - name: Format README Files
+        run: |
+          python .github/scripts/mkdocs.py
+
+      - name: Update Documentation with READMEs
+        run: |
+          rm -rf tmp/docs/mediaease
+          mkdir -p tmp/docs/mediaease
+          cp -pR docs/*.md tmp/docs/mediaease/
+          cp README.md tmp/docs/mediaease/
+          tree -L 2 tmp/docs/mediaease/
+
+      - name: Check for Documentation Changes
+        id: check_changes
+        run: |
+          cd tmp/
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to documentation. Exiting workflow."
+            exit 0
+          fi
+
+      - name: Commit Documentation Changes
+          unset GH_TOKEN GITHUB_TOKEN
+          echo GH_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          echo GITHUB_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          gh auth login --with-token <<< "${{ secrets.MEDIAEASE_ACCESS_TOKEN }}"
+          gh auth status
+          git config --global user.name "${{ secrets.GIT_AUTHOR }}"
+          git config --global user.email "${{ secrets.GIT_EMAIL }}"
+
+      - name: Push Documentation Changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          branch: main
+          force: true
+          directory: tmp/docs/mediaease
+          commit_message: "doc: update documentation to ${{ github.event.release.tag_name }}"

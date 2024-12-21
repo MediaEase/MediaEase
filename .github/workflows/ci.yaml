@@ -1,0 +1,143 @@
+name: Update and Release
+on:
+  push:
+    branches:
+      - develop
+      - main
+  schedule:
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      REPO_PATH: "${{ github.workspace }}/MediaEase"
+      SCRIPTS_PATH: "${{ github.workspace }}/workflows"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 1
+          ref: ${{ github.ref }}
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          fetch-tags: true
+      
+      - name: Checkout Scripts
+        uses: actions/checkout@v4
+        with:
+          repository: MediaEase/workflows
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          path: ${{ env.SCRIPTS_PATH }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Update submodules
+        run: |
+          set -e
+          UPDATED=false
+          git checkout ${{ github.ref }}
+          SUBMODULES=("zen" "harmonyui")
+          UPDATED_SUBMODULES=()
+          echo "Fetching submodule tags..."
+          for SUBMODULE in "${SUBMODULES[@]}"; do
+            cd $SUBMODULE
+            git fetch --tags
+            LATEST_TAG=$(git tag --sort=-version:refname | head -n 1)
+            CURRENT_TAG=$(git describe --tags --abbrev=0 || echo "")
+            echo "Submodule $SUBMODULE: LATEST_TAG=$LATEST_TAG, CURRENT_TAG=$CURRENT_TAG"
+            if [ "$LATEST_TAG" != "" ]; then
+              echo "Updating $SUBMODULE to $LATEST_TAG"
+              git checkout $LATEST_TAG
+              cd ..
+              UPDATED_SUBMODULES+=("$SUBMODULE ($LATEST_TAG)")
+              UPDATED=true
+            else
+              echo "$SUBMODULE is already up-to-date."
+              cd ..
+            fi
+          done
+          if [ "$UPDATED" = true ]; then
+            if [ ${#UPDATED_SUBMODULES[@]} -gt 1 ]; then
+              COMMIT_MESSAGE="build: update submodules to latest versions [automated]\n\nThis includes:\n"
+              for SUBMODULE in "${UPDATED_SUBMODULES[@]}"; do
+                COMMIT_MESSAGE="$COMMIT_MESSAGE- $SUBMODULE\n"
+              done
+            else
+              SUBMODULE_NAME=$(echo "${UPDATED_SUBMODULES[0]}" | cut -d' ' -f1)
+              SUBMODULE_TAG=$(echo "${UPDATED_SUBMODULES[0]}" | grep -oP '\(.*\)' | tr -d '()')
+              COMMIT_MESSAGE="build: update $SUBMODULE_NAME to $SUBMODULE_TAG [automated]"
+            fi
+            echo -e "$COMMIT_MESSAGE" > commit_message.txt
+          fi
+          echo "UPDATED=$UPDATED" >> $GITHUB_ENV
+
+      - name: Determine if prerelease
+        if: env.UPDATED == 'true'
+        run: |
+          set -e
+          echo "Determining if this is a prerelease..."
+          PRE_RELEASE=false
+          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            PRE_RELEASE=true
+            PRE_RELEASE_IDENTIFIER="$(cat ${{ env.SCRIPTS_PATH }}/prerelease_identifier.txt)"
+            echo "PRE_RELEASE_IDENTIFIER=-$PRE_RELEASE_IDENTIFIER" >> $GITHUB_ENV
+          fi
+          GLOBAL_VERSION=$(python3 ${{ env.SCRIPTS_PATH }}/global/calculate_global_version.py)
+          if [[ "$PRE_RELEASE" == "true" ]]; then
+            GLOBAL_VERSION="${GLOBAL_VERSION}-${PRE_RELEASE_IDENTIFIER}"
+          fi
+          echo "GLOBAL_VERSION=$GLOBAL_VERSION" >> $GITHUB_ENV
+          echo "global version: $GLOBAL_VERSION"
+      
+      - name: Generate Changelog
+        if: env.GLOBAL_VERSION != ''
+        run: |
+            set -e
+            git fetch --tags --force
+            ARGS="${{ env.GLOBAL_VERSION }}"
+            [[ "${{ env.PRE_RELEASE }}" == "false" ]] && ARGS="$ARGS --release_name '${{ env.RELEASE_NAME }}'"
+            python3 ${{ env.SCRIPTS_PATH }}/global/global_changelog.py $ARGS
+            echo "CHANGELOG_GENERATED=true" >> $GITHUB_ENV
+            COMMIT_MESSAGE=$(cat commit_message.txt)
+            rm -rf ${{  env.SCRIPTS_PATH }}
+
+      - name: Configure Git
+        if: env.CHANGELOG_GENERATED == 'true'
+        run: |
+            unset GH_TOKEN GITHUB_TOKEN
+            echo GH_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+            echo GITHUB_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+            gh auth login --with-token <<< "${{ secrets.MEDIAEASE_ACCESS_TOKEN }}"
+            gh auth status
+            git config --global user.name "${{ secrets.GIT_AUTHOR }}"
+            git config --global user.email "${{ secrets.GIT_EMAIL }}"
+            
+      - name: Commit Changes
+        if: env.CHANGELOG_GENERATED == 'true'
+        run: |
+            git add .
+            git reset commit_message.txt
+            git tag v${{ env.GLOBAL_VERSION }}
+            git commit -F - <<< "$COMMIT_MESSAGE"
+        
+      - name: Push changes
+        if: env.CHANGELOG_GENERATED == 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          branch: ${{ github.ref }}
+          force: true
+          tags: true
+
+      - name: Create Release
+        if: env.UPDATED == 'true'
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            gh release create v${{ env.GLOBAL_VERSION }} --notes-file docs/changelogs/CHANGELOG_${{ env.GLOBAL_VERSION }}.md --prerelease --target develop --title "v${{ env.GLOBAL_VERSION }}"
+          else
+            gh release create v${{ env.GLOBAL_VERSION }} --notes-file docs/changelogs/CHANGELOG_${{ env.GLOBAL_VERSION }}.md --target main --title "v${{ env.GLOBAL_VERSION }}"
+          fi

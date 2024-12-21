@@ -1,0 +1,67 @@
+name: Codebase Improvement
+description: Provide your feedback for the existing codebase. Suggest a better solution for algorithms, development tools, etc.
+title: "chore: "
+labels: ["enhancement"]
+assignees: tomcdj71
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Codebase Improvement**
+
+        Thanks for taking the time to suggest an improvement for our codebase!
+
+  - type: input
+    id: contact
+    attributes:
+      label: Contact Details
+      description: How can we reach you if we need further discussion on your suggestion?
+      placeholder: ex. email@example.com
+    validations:
+      required: false
+
+  - type: textarea
+    id: improvement-summary
+    attributes:
+      label: Improvement Summary
+      description: Provide a brief summary of your suggested improvement.
+      placeholder: Brief summary of the improvement.
+    validations:
+      required: true
+
+  - type: textarea
+    id: detailed-improvement
+    attributes:
+      label: Detailed Improvement Description
+      description: Please describe in detail the improvement you are suggesting. Include specific areas of the codebase, and why you believe this change would be beneficial.
+      placeholder: Detailed description of the improvement...
+    validations:
+      required: true
+
+  - type: textarea
+    id: potential-impact
+    attributes:
+      label: Potential Impact
+      description: Describe the potential impact of this improvement on the codebase. Include any positive or negative consequences.
+      placeholder: Potential impact of the improvement...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-resources
+    attributes:
+      label: Additional Resources
+      description: If applicable, provide links to any resources or documentation that support your suggestion (e.g., research papers, existing implementations).
+      placeholder: URL to resources or documentation.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this improvement suggestion, you agree to follow our [Code of Conduct](https://mediaease.github.io/docs/CODE_OF_CONDUCT/)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
