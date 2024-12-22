@@ -1,8 +1,8 @@
 [submodule "harmonyui"]
 	path = harmonyui
 	url = https://github.com/MediaEase/HarmonyUI
-	branch = main
+	branch = develop
 [submodule "zen"]
 	path = zen
 	url = https://github.com/MediaEase/zen
-	branch = main
+	branch = develop
