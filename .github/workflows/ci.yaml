@@ -1,0 +1,239 @@
+name: Update Submodules
+on:
+  push:
+    branches:
+      - develop
+      - main
+  # schedule:
+  #   - cron: "0 */12 * * *"
+  # workflow_dispatch:
+
+jobs:
+  update_submodules:
+    runs-on: ubuntu-latest
+
+    env:
+      REPO_PATH: "${{ github.workspace }}/MediaEase"
+      SCRIPTS_PATH: "${{ github.workspace }}/workflows"
+      UNENCRYPTED_PATH: "${{ github.workspace }}/unencrypted"
+
+    strategy:
+      max-parallel: 1
+      fail-fast: true 
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 1
+          ref: ${{ github.ref }}
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          path: ${{ env.REPO_PATH }}
+          fetch-tags: true
+      
+      - name: Checkout Workflows
+        uses: actions/checkout@v4
+        with:
+          repository: MediaEase/workflows
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          path: ${{ env.SCRIPTS_PATH }}
+      
+      - name: Checkout unencrypted binaries
+        uses: actions/checkout@v4
+        with:
+          repository: MediaEase/unencrypted
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          path: ${{ env.UNENCRYPTED_PATH }}
+          ref: ${{ github.ref }}
+      
+      - name: Initialize Submodules and Fetch Tags
+        run: |
+          set -e
+          cd ${{ env.REPO_PATH }}
+          echo "Initializing and updating submodules..."
+          TARGET_BRANCH=${GITHUB_REF#refs/heads/}
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          git submodule foreach "
+            git fetch --tags
+            if git rev-parse --verify origin/$TARGET_BRANCH; then
+              git checkout $TARGET_BRANCH
+              git pull origin $TARGET_BRANCH
+            else
+              echo 'Branch $TARGET_BRANCH not found; defaulting to main.'
+              git checkout main
+              git pull origin main
+            fi
+          "
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      
+      - name: Update setup script
+        run: |
+          set -e
+          cd ${{ env.REPO_PATH }}
+          if [ -f setup.sh ]; then
+            setup_version=$(sudo ./setup.sh --print-version)
+            rm -f setup.sh
+          else
+            setup_version="v0.1.0"
+          fi
+          echo "current_setup_version=$setup_version" >> $GITHUB_ENV
+          if [ ${{ github.ref }} == "refs/heads/develop" ]; then setup_file="setup-dev.sh"; else setup_file="setup.sh"; fi
+          cp -pR ${{ env.UNENCRYPTED_PATH }}/compiled/$setup_file setup.sh
+          chmod +x setup.sh
+          SETUPSH_COMMIT_DATE=$(git -C ${{ env.UNENCRYPTED_PATH }} log -1 --format=%cd --date=format-local:%Y-%m-%d -- compiled/setup-dev.sh)
+          echo "setup_date=$SETUPSH_COMMIT_DATE" >> $GITHUB_ENV
+          if [ ! -f setup.sh ]; then
+            exit 1
+          fi
+          echo "new_setup_version=$(sudo ./setup.sh --print-version)" >> $GITHUB_ENV
+
+      - name: Update submodules
+        run: |
+          set -e
+          cd ${{ env.REPO_PATH }}
+          UPDATED=false
+          SUBMODULES=("zen" "harmonyui")
+          UPDATED_SUBMODULES=()
+          echo "Fetching submodule tags..."
+          echo "{" > updated_submodules.json
+          for SUBMODULE in "${SUBMODULES[@]}"; do
+            if [ ! -d "$SUBMODULE" ]; then
+              echo "Error: Submodule $SUBMODULE directory does not exist."
+              exit 1
+            fi
+            cd $SUBMODULE || { echo "Failed to change directory to $SUBMODULE"; exit 1; }
+            echo "Fetching all branches and tags for $SUBMODULE..."
+            git fetch --all --tags
+            LATEST_TAG=$(git tag --sort=-version:refname | head -n 1)
+            CURRENT_COMMIT=$(git rev-parse HEAD)
+            TAG_COMMIT=$(git rev-parse $LATEST_TAG)
+            OLD_TAG=$(git describe --tags --abbrev=0)
+            echo "Submodule $SUBMODULE: LATEST_TAG=$LATEST_TAG, CURRENT_COMMIT=$CURRENT_COMMIT, TAG_COMMIT=$TAG_COMMIT"
+            if [ "$CURRENT_COMMIT" != "$TAG_COMMIT" ]; then
+              echo "Checking out $SUBMODULE to tag $LATEST_TAG..."
+              git checkout $LATEST_TAG
+              echo "$SUBMODULE updated to $LATEST_TAG"
+              cd ${{ env.REPO_PATH }}
+              UPDATED_SUBMODULES+=("$SUBMODULE ($LATEST_TAG) ($OLD_TAG)")
+              echo "  \"$SUBMODULE\": { \"latest\": \"$LATEST_TAG\", \"previous\": \"$OLD_TAG\" }," >> updated_submodules.json
+              UPDATED=true
+            else
+              echo "$SUBMODULE is already up-to-date."
+              cd ${{ env.REPO_PATH }}
+            fi
+          done
+          echo "  \"setup\": { \"latest\": \"${{ env.new_setup_version }}\", \"previous\": \"${{ env.current_setup_version }}\", \"date\": \"${{ env.setup_date }}\" }" >> updated_submodules.json
+          sed -i '$ s/,$//' updated_submodules.json
+          echo "}" >> updated_submodules.json
+          cat updated_submodules.json
+          if [ "$UPDATED" = true ]; then
+            echo "Preparing commit message..."
+            if [ ${#UPDATED_SUBMODULES[@]} -gt 1 ]; then
+              COMMIT_MESSAGE="build: update submodules to latest versions [skip ci]\n\nThis includes:\n"
+              for SUBMODULE in "${UPDATED_SUBMODULES[@]}"; do
+                COMMIT_MESSAGE="$COMMIT_MESSAGE- $SUBMODULE\n"
+              done
+            else
+              SUBMODULE_NAME=$(echo "${UPDATED_SUBMODULES[0]}" | cut -d' ' -f1)
+              SUBMODULE_TAG=$(echo "${UPDATED_SUBMODULES[0]}" | grep -oP '\(.*\)' | tr -d '()')
+              COMMIT_MESSAGE="build: update $SUBMODULE_NAME to $SUBMODULE_TAG [skip ci]\n\nThis includes:"
+            fi
+            echo -e "$COMMIT_MESSAGE" > commit_message.txt
+            echo "UPDATED=$UPDATED" >> $GITHUB_ENV
+          fi
+
+      - name: Ensure Proper Submodule State
+        run: |
+          set -e
+          cd ${{ env.REPO_PATH }}
+          for SUBMODULE in "zen" "harmonyui"; do
+            cd $SUBMODULE || { echo "Failed to change directory to $SUBMODULE"; exit 1; }
+            if [ -z "$(git tag --sort=-version:refname | head -n 1)" ]; then
+              echo "Error: No tags found for submodule $SUBMODULE."
+              exit 1
+            fi
+            cd ..
+          done
+  
+      - name: Determine if prerelease
+        if: env.UPDATED == 'true'
+        run: |
+          set -e
+          cd ${{ env.REPO_PATH }}
+          echo "Determining if this is a prerelease..."
+          PRE_RELEASE=false
+          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            PRE_RELEASE=true
+            PRE_RELEASE_IDENTIFIER="$(cat ${{ env.SCRIPTS_PATH }}/prerelease_identifier.txt)"
+            echo "PRE_RELEASE_IDENTIFIER=-$PRE_RELEASE_IDENTIFIER" >> $GITHUB_ENV
+          fi
+          GLOBAL_VERSION=$(python3 ${{ env.SCRIPTS_PATH }}/global/calculate_global_version.py)
+          if [[ "$PRE_RELEASE" == "true" ]]; then
+            GLOBAL_VERSION="${GLOBAL_VERSION}-${PRE_RELEASE_IDENTIFIER}"
+          fi
+          echo "GLOBAL_VERSION=$GLOBAL_VERSION" >> $GITHUB_ENV
+          echo "global version: $GLOBAL_VERSION"
+      
+      - name: Generate Changelog
+        if: env.GLOBAL_VERSION != ''
+        run: |
+            set -e
+            cd ${{ env.REPO_PATH }}
+            git fetch --tags --force
+            echo "RELEASE_NAME=$(python3 ${{ env.SCRIPTS_PATH }}/global/release_namer.py)" >> $GITHUB_ENV
+            ARGS="${{ env.GLOBAL_VERSION }} --versions-file updated_submodules.json"
+            [[ "${{ env.PRE_RELEASE }}" == "false" ]] && ARGS="$ARGS --release_name '${{ env.RELEASE_NAME }}'"
+            python3 ${{ env.SCRIPTS_PATH }}/global/global_changelog.py $ARGS
+            echo "CHANGELOG_GENERATED=true" >> $GITHUB_ENV
+            rm -rf ${{  env.SCRIPTS_PATH }}
+            rm -rf updated_submodules.json
+
+      - name: Configure Git
+        if: env.CHANGELOG_GENERATED == 'true'
+        run: |
+            unset GH_TOKEN GITHUB_TOKEN
+            echo GH_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+            echo GITHUB_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+            gh auth login --with-token <<< "${{ secrets.MEDIAEASE_ACCESS_TOKEN }}"
+            gh auth status
+            git config --global user.name "${{ secrets.GIT_AUTHOR }}"
+            git config --global user.email "${{ secrets.GIT_EMAIL }}"
+            
+      - name: Commit Changes
+        if: env.CHANGELOG_GENERATED == 'true'
+        run: |
+            cd ${{ env.REPO_PATH }}
+            git add --force .
+            git reset commit_message.txt
+            git tag v${{ env.GLOBAL_VERSION }}
+            git commit -F commit_message.txt
+        
+      - name: Push changes
+        if: env.CHANGELOG_GENERATED == 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          branch: ${{ github.ref }}
+          force: true
+          tags: true
+          directory: ${{ env.REPO_PATH }}
+          push_to_submodules: no
+
+      - name: Dispatch event to create release
+        if: env.CHANGELOG_GENERATED == 'true'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} 
+          repository: MediaEase/MediaEase
+          event-type: release
+          client-payload: |-
+            {
+              "version": "${{ env.GLOBAL_VERSION }}",
+              "branch": "${{ github.ref }}",
+              "release_name": "${{ env.RELEASE_NAME }}"
+            }

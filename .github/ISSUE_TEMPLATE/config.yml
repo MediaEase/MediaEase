@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: MediaEase Documentation
+    url: https://mediaease.github.io/docs/
+    about: Please read the documentation before asking questions.
+  - name: MediaEase Discord
+    url: https://discord.gg/VSuVkJF5
+    about: Please join our Discord server for help.

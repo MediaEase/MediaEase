@@ -1,0 +1,72 @@
+name: Update Documentation
+on:
+  repository_dispatch:
+    types: [documentation]
+    
+jobs:
+  documentation-update:
+    runs-on: ubuntu-latest
+    env:
+      REPO_PATH: /tmp
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          ref: main
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          repository: MediaEase/docs
+          ref: main
+          path: ${{ env.DOCUMENTATION_PATH }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python Dependencies
+        run: pip install pyyaml
+      - name: Format README Files
+        run: |
+          python3 .github/scripts/mkdocs.py
+      - name: Update Documentation with READMEs
+        run: |
+          doc_path="${{ env.DOCUMENTATION_PATH }}/docs/mediaease"
+          echo "doc_path=$doc_path" >> $GITHUB_ENV
+          rm -rf $doc_path
+          mkdir -p $doc_path
+          cp -pR docs/*.md $doc_path/
+          cp README.md $doc_path/
+          tree -L 2 $doc_path/
+      - name: Check for Documentation Changes
+        id: check_changes
+        run: |
+          cd tmp/
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to documentation. Exiting workflow."
+            exit 0
+          fi
+      - name: Commit Documentation Changes
+        run: |
+          unset GH_TOKEN GITHUB_TOKEN
+          echo GH_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          echo GITHUB_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          gh auth login --with-token <<< "${{ secrets.MEDIAEASE_ACCESS_TOKEN }}"
+          gh auth status
+          git config --global user.name "${{ secrets.GIT_AUTHOR }}"
+          git config --global user.email "${{ secrets.GIT_EMAIL }}"
+      - name: Push Documentation Changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          branch: main
+          force: true
+          directory: ${{ env.DOCUMENTATION_PATH }}/docs/mediaease
+          commit_message: "doc: update documentation to ${{ github.event.release.tag_name }}"

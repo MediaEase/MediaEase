@@ -1,0 +1,67 @@
+name: Create Release
+
+on:
+  repository_dispatch:
+    types: [release]
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+
+    env:
+      REPO_PATH: "${{ github.workspace }}/MediaEase"
+      REF_BRANCH: ${{ github.event.client_payload.branch }}
+      VERSION: ${{ github.event.client_payload.version }}
+      RELEASE_NAME: ${{ github.event.client_payload.release_name }}
+
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+          ref: ${{ env.REF_BRANCH }}
+          path: ${{ env.REPO_PATH }}
+      
+      - name: Configure Git
+        run: |
+            unset GH_TOKEN GITHUB_TOKEN
+            echo GH_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+            echo GITHUB_TOKEN=${{ secrets.MEDIAEASE_ACCESS_TOKEN }}
+            gh auth login --with-token <<< "${{ secrets.MEDIAEASE_ACCESS_TOKEN }}"
+            gh auth status
+            git config --global user.name "${{ secrets.GIT_AUTHOR }}"
+            git config --global user.email "${{ secrets.GIT_EMAIL }}"
+
+      - name: Create Release
+        run: |
+          cd ${{ env.REPO_PATH }}
+          echo "Creating release for version ${{ env.VERSION }} on branch ${{ env.REF_BRANCH }}"
+          if [ "${{ env.REF_BRANCH }}" = "refs/heads/develop" ]; then
+            gh release create "v${{ env.VERSION }}" \
+              --notes-file "${{ env.REPO_PATH }}/docs/changelogs/CHANGELOG_${{ env.VERSION }}.md" \
+              --prerelease \
+              --target develop \
+              --title "v${{ env.VERSION }}"
+          else
+            gh release create "v${{ env.VERSION }}" \
+              --notes-file "${{ env.REPO_PATH }}/docs/changelogs/CHANGELOG_${{ env.VERSION }}.md" \
+              --target main \
+              --title "v${{ env.VERSION }} (${{ github.event.client_payload.release_name }})"
+          fi
+      
+      - name: Update Documentation
+        if: ${{ env.REF_BRANCH }} == "refs/heads/main"
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.MEDIAEASE_ACCESS_TOKEN }} 
+          repository: MediaEase/MediaEase
+          event-type: documentation
+          client-payload: |-
+            {
+              "version": "${{ env.VERSION }}"
+            }
